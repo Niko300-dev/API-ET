@@ -1,171 +1,149 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-
 require_once('config.php');
 
-	// New Connection
+// Suppression des mots banals
+function isProhibitedWord($word)
+{
+    $PROHIBITED_WORDS = ["QUEL", "EST", "C'EST", "POUR", "PAR","LE", "LES", "LA", "UN", "UNE", "DE", "DES", "D'", "L'", "T'", 
+                        "A", "EU" ,"MAIS", "OU" ,"OÙ","ET", "DONC", "OR", "NI", "CAR", "QUELLES", "QUELLE", "COMMENT",
+                        "POURQUOI", "SUR", "DANS", "DU", "AU", "AVOIR", "ÊTRE","QUE", "QU'EST-CE", "À",""];
+
+    foreach ($PROHIBITED_WORDS as $prohibitedWord) {
+        if (trim(strtoupper($word)) == $prohibitedWord)
+            return (true);
+    }
+    return (false);
+}
+
+// Nettoyage et constitution de l'array de mots clés propres
+function clearWords($sentence)
+{
+    $output = [];
+    $motsToSearchForReponseAleatoire = explode(" ", $sentence);
+    
+    foreach ($motsToSearchForReponseAleatoire as $currentMot) {
+        $motCleaned = str_replace('"','',$currentMot);
+        $motCleaned = str_replace('?','',$motCleaned);
+        $motCleaned = str_replace('!','',$motCleaned);
+        $motCleaned = str_replace('.','',$motCleaned);
+        $motCleaned = str_replace(',','',$motCleaned);
+        $motCleaned = str_replace(':','',$motCleaned);
+
+        if (!isProhibitedWord($motCleaned)) {
+            array_push($output, $motCleaned);
+        }
+    }
+    return ($output);
+}
+
+	// Connexion à la BDD
 	$db = new mysqli($ADRES, $USER, $MDP, $BASE);
 	mysqli_set_charset($db,"utf8");
 	
-	// Check for errors
+	// Check des erreurs
 	if(mysqli_connect_errno()){
 	echo mysqli_connect_error();
 	}
+	
 try
 {
 	
 	
-	
-$reponse = $db->query("CALL API_MajorityQuestionHasard();");
-	
-	if($reponse){
-		 // Cycle through results
-		$data = $reponse->fetch_assoc();
-
-		$questionADecoudre = $data["question"];
-		
-		$noThisId = $data["IDQuestion"];
-		
-		// Free result set
-		$reponse->close();
-		$db->next_result();
-			
-	$motsToSearchForReponseAleatoire = explode(" ", $questionADecoudre);
-	$motCleaned = "";
-	
-	$listeMotsClef = [];
-	
-	foreach ( $motsToSearchForReponseAleatoire as $currentMot)
-	{
-		$motCleaned = str_replace('"','',$currentMot);
-		$motCleaned = str_replace('?','',$motCleaned);
-		$motCleaned = str_replace('!','',$motCleaned);
-		$motCleaned = str_replace('.','',$motCleaned);
-		$motCleaned = str_replace(',','',$motCleaned);
-		$motCleaned = str_replace(':','',$motCleaned);
-		
-		if (strtoupper($motCleaned) != "QUEL" && 
-		strtoupper($motCleaned) != "EST" && 
-		strtoupper($motCleaned) != "C'EST" && 
-		strtoupper($motCleaned) != "POUR" && 
-		strtoupper($motCleaned) != "PAR" && 		
-		strtoupper($motCleaned) != "LE" && 
-		strtoupper($motCleaned) != "LES" && 
-		strtoupper($motCleaned) != "LA" && 
-		strtoupper($motCleaned) != "UN" && 
-		strtoupper($motCleaned) != "UNE" && 
-		strtoupper($motCleaned) != "DE" && 
-		strtoupper($motCleaned) != "DES" && 
-		strtoupper($motCleaned) != "D'" && 
-		strtoupper($motCleaned) != "L'" && 
-		strtoupper($motCleaned) != "T'" && 
-		strtoupper($motCleaned) != "A" &&	
-		strtoupper($motCleaned) != "EU" &&			
-		strtoupper($motCleaned) != "MAIS" && 
-		strtoupper($motCleaned) != "OU" &&
-		strtoupper($motCleaned) != "OÙ" &&	
-				   $motCleaned  != "où" &&			
-		strtoupper($motCleaned) != "ET" && 
-		strtoupper($motCleaned) != "DONC" && 
-		strtoupper($motCleaned) != "OR" && 
-		strtoupper($motCleaned) != "NI" && 
-		strtoupper($motCleaned) != "CAR" && 		
-		strtoupper($motCleaned) != "QUELLES" && 
-		strtoupper($motCleaned) != "QUELLE" &&	
-		strtoupper($motCleaned) != "COMMENT" && 
-		strtoupper($motCleaned) != "POURQUOI" &&	
-		strtoupper($motCleaned) != "SUR" && 	
-		strtoupper($motCleaned) != "DANS" &&	
-		strtoupper($motCleaned) != "DU" &&	
-		strtoupper($motCleaned) != "AU" && 	
-		strtoupper($motCleaned) != "AVOIR" && 
-		strtoupper($motCleaned) != "ÊTRE" &&
-		strtoupper($motCleaned) != "QUE" &&
-		strtoupper($motCleaned) != "QU'EST-CE" &&
-				   $motCleaned  != "à" &&   
-		strtoupper($motCleaned) != "")
-		{
-			array_push($listeMotsClef, $motCleaned);
-		}
-
-	}
-
-	$cptQuestionsPrisesEnCompte = 0;
-	$cptMotsPrisEnCompte = 0;
-	
-	$listeIDs = [];
-	
-	//echo json_encode($listeMotsClef, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-	shuffle($listeMotsClef);
+// FAIRE TANT QUE PAS 3 REPONSES :
 	
 	do{
-		$reponseCourante = $db->query("CALL API_MajorityGetQuestionByMotClef('$listeMotsClef[$cptMotsPrisEnCompte]', $noThisId);");
+		// 1) Tirage d'une question au hasard	
+		$reponse = $db->query("CALL API_MajorityQuestionHasard();");
 		
-		if($reponseCourante){			
-			$dataListeQuestionsPretendantes = $reponseCourante->fetch_assoc();
+		if($reponse){
+				 // Cycle through results
+				$data = $reponse->fetch_assoc();
+
+				$questionADecoudre = $data["question"];
+				
+				$noThisId = $data["IDQuestion"];
+				
+				// Free result set
+				$reponse->close();
+				$db->next_result();
 			
-			if (!in_array($dataListeQuestionsPretendantes['IDQuestion'], $listeIDs))
-			{
-				array_push($listeIDs, $dataListeQuestionsPretendantes['IDQuestion']);
-				$cptQuestionsPrisentEnCompte++;
-				$reponseCourante->close();
-				$db->next_result();	
+				// 2) récupération des mots de la question nettoyés et dans un array
+				$listeMotsClef = clearWords($questionADecoudre);
+				
+				$cptMotsPrisEnCompte = 0;
+				$listeIDs = [];
+
+				// 3) Mélange de l'ordre des mots clés
+				shuffle($listeMotsClef);
+				
+				//exit(json_encode($listeMotsClef));
+				
+				// 4) Recherche de chacun des ID questions qui contient maximum chacun des 8 premiers mots clés (optimisation) - Question qui ne doit pas être celle d'origine : $NOTHISID !
+				do{
+					$reponseCourante = $db->query("CALL API_MajorityGetQuestionByMotClef('$listeMotsClef[$cptMotsPrisEnCompte]', $noThisId);");
+					
+					if($reponseCourante){			
+						$dataListeQuestionsPretendantes = $reponseCourante->fetch_assoc();
+						
+						if (!in_array($dataListeQuestionsPretendantes['IDQuestion'], $listeIDs))
+						{
+							array_push($listeIDs, $dataListeQuestionsPretendantes['IDQuestion']);
+
+							$reponseCourante->close();
+							$db->next_result();	
+						}
+					}
+					
+					$cptMotsPrisEnCompte++;
+
+				} while($cptMotsPrisEnCompte < count($listeMotsClef) && $cptMotsPrisEnCompte < 8);
+				
+				// 5) Mélange des questions (ID's)
+				shuffle ($listeIDs);
+				
+				$listeOfReponses = [];
+				
+				$cptAnswer = 0;
+				
+				// 6) Récupération de la réponse de chacune des questions avec limitation aux 3 premières questions du mélange (optimisation)
+				foreach ($listeIDs as $idCurrent)
+				{
+
+					$reponseCouranteAnswer = $db->query("CALL API_MajorityAnswersOfQuestion(".$idCurrent.");");
+					if($reponseCouranteAnswer){
+						$dataReponseToExplode = $reponseCouranteAnswer->fetch_assoc();			
+						$reponsesToExplode = $dataReponseToExplode['answers'];			
+						array_push($listeOfReponses, explode("|",$reponsesToExplode)[0]);
+					}
+
+						$reponseCouranteAnswer->close();
+						$db->next_result();
+						
+					$cptAnswer++;
+					if ($cptAnswer == 3) break;
+				}
+				
+				// == Pas de nouveau mélange car les ID des questions/réponses ont déjà été mélangés précédemment ==
+				
+				$jsonFinalAvecQuestionEtReponses = array(
+				question  => $questionADecoudre,
+				answers => $listeOfReponses);
+			
 			}
-		}
-		else
-		{
-			array_push($listeIDs, 0);
-		}
 		
-		$cptMotsPrisEnCompte++;
-		if ($cptMotsPrisEnCompte == 4) break;
+	} while (count($listeOfReponses) < 3); // On recommence l'opération si pas assez de réponses (exemple : Quel est la capital de la France --> Capitale (1) / France (2).
+	
+		exit (json_encode($jsonFinalAvecQuestionEtReponses, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
-	} while($cptMotsPrisEnCompte < count($listeMotsClef));
 	
-	//echo json_encode($listeIDs);
-	
-	shuffle ($listeIDs);
-	
-	$listeOfReponses = [];
-	
-	$cptAnswer = 0;
-	
-	foreach ($listeIDs as $idCurrent)
-	{
-
-		$reponseCouranteAnswer = $db->query("CALL API_MajorityAnswersOfQuestion(".$idCurrent.");");
-		if($reponseCouranteAnswer){
-			$dataReponseToExplode = $reponseCouranteAnswer->fetch_assoc();			
-			$reponsesToExplode = $dataReponseToExplode['answers'];			
-			array_push($listeOfReponses, explode("|",$reponsesToExplode)[0]);
-		}
-		else
-		{
-			array_push($listeOfReponses,"#ERROR#");
-		}
-			$reponseCouranteAnswer->close();
-			$db->next_result();
-			
-	$cptAnswer++;
-	}
-	
-	shuffle($listeOfReponses);
-	
-	$jsonAChier = array(
-    question  => $questionADecoudre,
-    answers => array($listeOfReponses[1],$listeOfReponses[0],$listeOfReponses[3]));
-
-	exit (json_encode($jsonAChier, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
-	}
 }
 catch (Exception $ex)
 {
-	echo 'ERROR : '.$ex->getMessage();
+	//exit (json_encode('{"ERROR" : "'.$ex->getMessage()'"}', JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
 
-	// Close connection
+	// On ferme quand même la connexion à la DB, on sait jamais ce qu'il peut arriver sinon...
 	$db->close();
 
 ?>
