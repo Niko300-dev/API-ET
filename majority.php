@@ -31,7 +31,7 @@ function clearWords($sentence)
         $motCleaned = str_replace(':','',$motCleaned);
 
         if (!isProhibitedWord($motCleaned)) {
-            array_push($output, $motCleaned);
+            array_push($output," ".$motCleaned);
         }
     }
     return ($output);
@@ -53,6 +53,9 @@ try
 // FAIRE TANT QUE PAS 3 REPONSES :
 	
 	do{
+		
+		a:
+		
 		// 1) Tirage d'une question au hasard	
 		$reponse = $db->query("CALL API_MajorityQuestionHasard();");
 		
@@ -72,32 +75,30 @@ try
 				$listeMotsClef = clearWords($questionADecoudre);
 				
 				$cptMotsPrisEnCompte = 0;
+				$cptMot = 0;
 				$listeIDs = [];
-
+				$isPush = false;
+				
 				// 3) Mélange de l'ordre des mots clés
 				shuffle($listeMotsClef);
+				
+				$motsClefVirgule = implode("|", $listeMotsClef);
 				
 				//exit(json_encode($listeMotsClef));
 				
 				// 4) Recherche de chacun des ID questions qui contient maximum chacun des 8 premiers mots clés (optimisation) - Question qui ne doit pas être celle d'origine : $NOTHISID !
-				do{
-					$reponseCourante = $db->query("CALL API_MajorityGetQuestionByMotClef('$listeMotsClef[$cptMotsPrisEnCompte]', $noThisId);");
+				
 					
-					if($reponseCourante){			
-						$dataListeQuestionsPretendantes = $reponseCourante->fetch_assoc();
-						
-						if (!in_array($dataListeQuestionsPretendantes['IDQuestion'], $listeIDs))
-						{
-							array_push($listeIDs, $dataListeQuestionsPretendantes['IDQuestion']);
-
-							$reponseCourante->close();
-							$db->next_result();	
+						$reponseCourante = $db->query("CALL API_MajorityGetQuestionByMotClef('".addslashes($motsClefVirgule)."', $noThisId);");
+						if($reponseCourante){			
+								while ($dataListeQuestionPretendantes = $reponseCourante->fetch_assoc())
+								{
+									array_push($listeIDs, $dataListeQuestionPretendantes['IDQuestion']);
+								}
+								$reponseCourante->close();
+								$db->next_result();							
 						}
-					}
-					
-					$cptMotsPrisEnCompte++;
 
-				} while($cptMotsPrisEnCompte < count($listeMotsClef) && $cptMotsPrisEnCompte < 8);
 				
 				// 5) Mélange des questions (ID's)
 				shuffle ($listeIDs);
@@ -112,12 +113,11 @@ try
 
 					$reponseCouranteAnswer = $db->query("CALL API_MajorityAnswersOfQuestion(".$idCurrent.");");
 					if($reponseCouranteAnswer){
-						$dataReponseToExplode = $reponseCouranteAnswer->fetch_assoc();			
-						$reponsesToExplode = $dataReponseToExplode['answers'];			
-						array_push($listeOfReponses, explode("|",$reponsesToExplode)[0]);
-					}
-
-						$reponseCouranteAnswer->close();
+							$dataReponseToExplode = $reponseCouranteAnswer->fetch_assoc();			
+							$reponsesToExplode = $dataReponseToExplode['answers'];			
+							array_push($listeOfReponses, explode("|",$reponsesToExplode)[0]);
+							$reponseCouranteAnswer->close();
+						}
 						$db->next_result();
 						
 					$cptAnswer++;
